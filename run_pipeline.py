@@ -9,9 +9,9 @@ Usage:
     python run_pipeline.py
 
 The pipeline will process all data in-memory and output:
-- nrl_matches_final_model_ready.csv (main ML dataset)
-- nrl_team_stats_final_complete.csv (complete team features)
-- nrl_core_features_list.txt (feature reference)
+- ../nrl_matches_final_model_ready.csv (main ML dataset)
+- ../nrl_team_stats_final_complete.csv (complete team features)
+- ../nrl_core_features_list.txt (feature reference)
 
 Author: NRL Betting Model Team
 Date: July 2025
@@ -20,9 +20,10 @@ Date: July 2025
 import sys
 import os
 from datetime import datetime
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import all required functions from the feature engineering module
-from featureEngineering import (
+from featureEngineering.featureEngineering import (
     load_and_clean_nrl_data,
     preview_data,
     create_team_level_stats,
@@ -128,12 +129,12 @@ def save_final_outputs(df_final, team_stats_final, core_features, save_intermedi
         # Save the main model-ready dataset
         final_match_output = 'nrl_matches_final_model_ready.csv'
         df_final.to_csv(final_match_output, index=False)
-        print(f" Final model-ready dataset saved to: {final_match_output}")
+        print(f"✓ Final model-ready dataset saved to: {final_match_output}")
         
         # Save the complete team stats dataset
         final_team_output = 'nrl_team_stats_final_complete.csv'
         team_stats_final.to_csv(final_team_output, index=False)
-        print(f" Final team stats with all features saved to: {final_team_output}")
+        print(f"✓ Final team stats with all features saved to: {final_team_output}")
         
         # Save a feature list for reference
         feature_list_output = 'nrl_core_features_list.txt'
@@ -147,7 +148,7 @@ def save_final_outputs(df_final, team_stats_final, core_features, save_intermedi
                 f.write(f"{i:2d}. {feature}\n")
             f.write(f"\nTotal Features: {len(core_features)}\n")
         
-        print(f" Core features list saved to: {feature_list_output}")
+        print(f"✓ Core features list saved to: {feature_list_output}")
         
         # Optional: Save intermediate datasets for debugging/analysis
         if save_intermediate:

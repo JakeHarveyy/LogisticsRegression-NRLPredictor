@@ -1,0 +1,33 @@
+NRL BETTING MODEL - CORE FEATURES LIST
+==================================================
+
+TARGET VARIABLE:
+- Home_Win
+
+CORE MODEL FEATURES (X):
+ 1. elo_diff
+ 2. form_margin_diff_3
+ 3. form_win_rate_diff_3
+ 4. form_points_for_diff_3
+ 5. form_points_against_diff_3
+ 6. form_margin_diff_5
+ 7. form_win_rate_diff_5
+ 8. form_points_for_diff_5
+ 9. form_points_against_diff_5
+10. form_margin_diff_8
+11. form_win_rate_diff_8
+12. form_points_for_diff_8
+13. form_points_against_diff_8
+14. winning_streak_diff
+15. losing_streak_diff
+16. games_since_win_diff
+17. games_since_loss_diff
+18. recent_wins_3_diff
+19. home_rest_days
+20. away_rest_days
+21. away_travel_distance_km
+22. home_implied_prob
+23. away_implied_prob
+24. market_spread
+
+Total Features: 24

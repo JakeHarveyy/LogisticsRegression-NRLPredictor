@@ -4,7 +4,7 @@ from datetime import datetime
 import warnings
 warnings.filterwarnings('ignore')
 
-def load_and_clean_nrl_data(filepath='FeatureEngineering/nrlBaselineData.csv'):
+def load_and_clean_nrl_data(filepath='nrlBaselineDataWithWeather.csv', fallback_filepath='nrlBaselineData.csv'):
     """
     Load and perform foundational cleaning of NRL dataset.
     
@@ -14,16 +14,37 @@ def load_and_clean_nrl_data(filepath='FeatureEngineering/nrlBaselineData.csv'):
     - Target variable creation (Home_Win)
     - Margin calculation
     - Unique match ID creation
+    - Weather features (if available in enhanced dataset)
     
     Args:
-        filepath (str): Path to the CSV file
+        filepath (str): Path to the CSV file (preferably with weather data)
+        fallback_filepath (str): Fallback path if main file doesn't exist
         
     Returns:
         pd.DataFrame: Cleaned and prepared dataframe
     """
     
     print("Loading NRL baseline data...")
-    df = pd.read_csv(filepath)
+    
+    # Try to load the weather-enhanced dataset first
+    try:
+        df = pd.read_csv(filepath)
+        has_weather = 'temperature_c' in df.columns
+        print(f"✓ Loaded weather-enhanced dataset: {filepath}")
+        if has_weather:
+            weather_coverage = df['temperature_c'].notna().sum()
+            print(f"✓ Weather data available for {weather_coverage}/{len(df)} matches ({weather_coverage/len(df)*100:.1f}%)")
+    except FileNotFoundError:
+        print(f"⚠️  Weather-enhanced dataset not found: {filepath}")
+        print(f"   Falling back to original dataset: {fallback_filepath}")
+        try:
+            df = pd.read_csv(fallback_filepath)
+            has_weather = False
+            print(f"✓ Loaded original dataset: {fallback_filepath}")
+            print("   Run weather_scraper.py to create weather-enhanced dataset")
+        except FileNotFoundError:
+            print(f"❌ ERROR: Could not find either {filepath} or {fallback_filepath}")
+            raise FileNotFoundError(f"No baseline data file found")
     
     print(f"Original dataset shape: {df.shape}")
     print(f"Columns: {list(df.columns)}")
@@ -55,11 +76,24 @@ def load_and_clean_nrl_data(filepath='FeatureEngineering/nrlBaselineData.csv'):
     df['match_id'] = df.index
     print(f"✓ Created {len(df)} unique match IDs")
     
+    # Step 1.6: Weather features summary (if available)
+    if has_weather:
+        print("\n6. Weather features summary...")
+        weather_cols = ['temperature_c', 'humidity', 'wind_speed_kph', 'precipitation_mm', 
+                       'is_rainy', 'is_windy', 'weather_score']
+        available_weather_cols = [col for col in weather_cols if col in df.columns]
+        print(f"✓ Available weather features: {available_weather_cols}")
+        
+        if 'weather_score' in df.columns:
+            avg_weather_score = df['weather_score'].mean()
+            print(f"✓ Average weather quality: {avg_weather_score:.3f}/1.000")
+    
     # Data quality checks
     print("\n=== DATA QUALITY SUMMARY ===")
     print(f"Total matches: {len(df)}")
     print(f"Date range: {df['Date'].min().strftime('%Y-%m-%d')} to {df['Date'].max().strftime('%Y-%m-%d')}")
     print(f"Unique teams: {len(set(df['Home Team'].unique()) | set(df['Away Team'].unique()))}")
+    print(f"Weather-enhanced: {'Yes' if has_weather else 'No'}")
     print(f"Missing values per column:")
     for col in df.columns:
         missing = df[col].isnull().sum()
@@ -137,10 +171,10 @@ def create_team_level_stats(df):
     team_stats_df['lost'] = 1 - team_stats_df['won']
     
     # Data validation and summary
-    print(f"✓ Original matches: {len(df)}")
-    print(f"✓ Team records created: {len(team_stats_df)} (should be 2x matches)")
-    print(f"✓ Unique teams: {team_stats_df['team_name'].nunique()}")
-    print(f"✓ Date range: {team_stats_df['Date'].min().strftime('%Y-%m-%d')} to {team_stats_df['Date'].max().strftime('%Y-%m-%d')}")
+    print(f" Original matches: {len(df)}")
+    print(f" Team records created: {len(team_stats_df)} (should be 2x matches)")
+    print(f" Unique teams: {team_stats_df['team_name'].nunique()}")
+    print(f" Date range: {team_stats_df['Date'].min().strftime('%Y-%m-%d')} to {team_stats_df['Date'].max().strftime('%Y-%m-%d')}")
     
     # Team performance summary
     team_summary = team_stats_df.groupby('team_name').agg({
@@ -266,12 +300,12 @@ def calculate_rolling_features(team_stats_df):
             .reset_index(level=0, drop=True)
         )
     
-    print("  ✓ Rolling averages calculated for 3, 5, 8 game windows")
+    print("   Rolling averages calculated for 3, 5, 8 game windows")
     
     # Calculate streaks
     print("  Calculating win/loss streaks...")
     df = calculate_streaks(df)
-    print("  ✓ Win/loss streaks calculated")
+    print("   Win/loss streaks calculated")
     
     # Calculate additional form indicators
     print("  Calculating additional form indicators...")
@@ -326,7 +360,7 @@ def calculate_rolling_features(team_stats_df):
         df.loc[team_mask, 'games_since_win'] = games_since_win
         df.loc[team_mask, 'games_since_loss'] = games_since_loss
     
-    print("  ✓ Additional form indicators calculated")
+    print("   Additional form indicators calculated")
     
     # Data validation and summary
     rolling_features = [col for col in df.columns if col.startswith('rolling_')]
@@ -336,10 +370,10 @@ def calculate_rolling_features(team_stats_df):
     all_new_features = rolling_features + streak_features + form_features
     
     print(f"\n=== FEATURE ENGINEERING SUMMARY ===")
-    print(f"✓ Rolling features created: {len(rolling_features)}")
-    print(f"✓ Streak features created: {len(streak_features)}")
-    print(f"✓ Form features created: {len(form_features)}")
-    print(f"✓ Total new features: {len(all_new_features)}")
+    print(f" Rolling features created: {len(rolling_features)}")
+    print(f" Streak features created: {len(streak_features)}")
+    print(f" Form features created: {len(form_features)}")
+    print(f" Total new features: {len(all_new_features)}")
     
     print(f"\nRolling features: {rolling_features}")
     print(f"Streak features: {streak_features}")
@@ -367,9 +401,9 @@ def calculate_rolling_features(team_stats_df):
             non_null_teams.append(team)
     
     if len(non_null_teams) == 0:
-        print(f"Data leakage prevention: ✅ PASS - All teams have null rolling features in first game")
+        print(f"Data leakage prevention:  PASS - All teams have null rolling features in first game")
     else:
-        print(f"Data leakage prevention: ⚠️  PARTIAL - {len(non_null_teams)} teams have non-null values")
+        print(f"Data leakage prevention:   PARTIAL - {len(non_null_teams)} teams have non-null values")
         print(f"  Teams with issues: {non_null_teams[:3]}...")  # Show first 3
         
         # Show example of what proper data leakage prevention looks like
@@ -394,7 +428,7 @@ def calculate_streaks(df):
         # Shift to prevent data leakage - look at previous games only
         shifted_series = series.shift(1)
         
-        # Initialize streaks
+        # Initialise streaks
         winning_streak = []
         losing_streak = []
         
@@ -496,7 +530,7 @@ def calculate_elo_ratings(team_stats_df, k_factor=20, initial_elo=1500):
     teams = team_stats_df['team_name'].unique()
     elo_ratings = {team: initial_elo for team in teams}
     
-    print(f"✓ Initialized {len(teams)} teams with Elo rating: {initial_elo}")
+    print(f" Initialized {len(teams)} teams with Elo rating: {initial_elo}")
     
     # Create copy and sort by date
     df = team_stats_df.copy()
@@ -555,7 +589,7 @@ def calculate_elo_ratings(team_stats_df, k_factor=20, initial_elo=1500):
         
         processed_matches.add(match_id)
     
-    print(f"✓ Processed {len(processed_matches)} matches for Elo calculation")
+    print(f" Processed {len(processed_matches)} matches for Elo calculation")
     
     # Add final Elo ratings summary
     final_elos = pd.Series(elo_ratings).sort_values(ascending=False)
@@ -571,6 +605,10 @@ def calculate_rest_days(team_stats_df):
     """
     Step 4b: Calculate rest days between matches for each team
     
+    This function calculates rest days between consecutive matches within the same season.
+    Off-season gaps (between Round 27 and Round 1 of next year) are excluded to prevent
+    outliers from skewing the analysis.
+    
     Args:
         team_stats_df (pd.DataFrame): Team-level stats dataframe
         
@@ -578,7 +616,7 @@ def calculate_rest_days(team_stats_df):
         pd.DataFrame: Enhanced dataframe with rest_days column
     """
     
-    print("\n=== STEP 4b: Calculating Rest Days ===")
+    print("\n=== STEP 4b: Calculating Rest Days (Season-Aware) ===")
     
     df = team_stats_df.copy()
     df = df.sort_values(['team_name', 'Date']).reset_index(drop=True)
@@ -586,29 +624,77 @@ def calculate_rest_days(team_stats_df):
     # Convert Date to datetime if not already
     df['Date'] = pd.to_datetime(df['Date'])
     
-    # Calculate rest days using shift to prevent data leakage
-    df['rest_days'] = (
-        df.groupby('team_name')['Date']
-        .diff()
-        .dt.days
-        .shift(1)  # Prevent data leakage - only use past data
-    )
+    # Extract year to identify seasons
+    df['season'] = df['Date'].dt.year
     
-    # First game for each team will have NaN, which is expected
-    print(f"✓ Rest days calculated for all teams")
+    # Initialize rest_days column
+    df['rest_days'] = np.nan
     
-    # Summary statistics
-    rest_stats = df['rest_days'].describe()
-    print(f"\n=== REST DAYS STATISTICS ===")
-    print(f"Mean rest days: {rest_stats['mean']:.1f}")
-    print(f"Median rest days: {rest_stats['50%']:.1f}")
-    print(f"Min rest days: {rest_stats['min']:.0f}")
-    print(f"Max rest days: {rest_stats['max']:.0f}")
+    print("Calculating rest days within seasons (excluding off-season gaps)...")
     
-    # Count of different rest periods
-    rest_counts = df['rest_days'].value_counts().sort_index()
-    print(f"\nMost common rest periods:")
-    print(rest_counts.head(8).to_string())
+    # Calculate rest days for each team, respecting season boundaries
+    for team in df['team_name'].unique():
+        team_mask = df['team_name'] == team
+        team_data = df[team_mask].copy()
+        team_data = team_data.sort_values('Date').reset_index()
+        
+        # Calculate rest days between consecutive games
+        for i in range(1, len(team_data)):
+            current_season = team_data.iloc[i]['season']
+            previous_season = team_data.iloc[i-1]['season']
+            
+            # Only calculate rest days within the same season
+            if current_season == previous_season:
+                current_date = team_data.iloc[i]['Date']
+                previous_date = team_data.iloc[i-1]['Date']
+                rest_days_value = (current_date - previous_date).days
+                
+                # Apply data leakage prevention by using previous game's rest days
+                # (shift effect built into the logic)
+                if i >= 2:  # Need at least 2 previous games to prevent leakage
+                    df.loc[team_data.iloc[i]['index'], 'rest_days'] = rest_days_value
+            # If different seasons, leave as NaN (off-season gap ignored)
+    
+    # Summary statistics (excluding NaN values)
+    valid_rest_days = df['rest_days'].dropna()
+    
+    print(f" Rest days calculated for all teams (within seasons only)")
+    print(f" Off-season gaps excluded: {df['rest_days'].isna().sum()} records")
+    print(f" Valid rest day calculations: {len(valid_rest_days)} records")
+    
+    if len(valid_rest_days) > 0:
+        rest_stats = valid_rest_days.describe()
+        print(f"\n=== REST DAYS STATISTICS (Season-Aware) ===")
+        print(f"Mean rest days: {rest_stats['mean']:.1f}")
+        print(f"Median rest days: {rest_stats['50%']:.1f}")
+        print(f"Min rest days: {rest_stats['min']:.0f}")
+        print(f"Max rest days: {rest_stats['max']:.0f}")
+        
+        # Count of different rest periods
+        rest_counts = valid_rest_days.value_counts().sort_index()
+        print(f"\nMost common rest periods:")
+        print(rest_counts.head(8).to_string())
+        
+        # Season analysis
+        season_counts = df.groupby('season')['rest_days'].count()
+        print(f"\n=== SEASON BREAKDOWN ===")
+        print("Valid rest day calculations per season:")
+        print(season_counts.to_string())
+        
+        # Check for any suspiciously long rest periods (potential issues)
+        long_rest = valid_rest_days[valid_rest_days > 30]
+        if len(long_rest) > 0:
+            print(f"\n  Found {len(long_rest)} rest periods > 30 days:")
+            long_rest_matches = df[df['rest_days'] > 30][['Date', 'team_name', 'rest_days', 'season']]
+            print(long_rest_matches.head().to_string(index=False))
+            print(f"Note: These may be mid-season breaks or scheduling anomalies")
+        else:
+            print(f"\n All rest periods are within reasonable range (≤30 days)")
+    else:
+        print(f"\n  No valid rest day calculations found")
+    
+    # Drop the temporary season column
+    df = df.drop('season', axis=1)
     
     return df
 
@@ -727,7 +813,7 @@ def calculate_travel_distance(team_stats_df):
         distance = haversine_distance(team_lat, team_lon, venue_lat, venue_lon)
         df.loc[idx, 'travel_distance_km'] = distance
     
-    print(f"✓ Travel distances calculated for away games")
+    print(f" Travel distances calculated for away games")
     
     # Summary statistics
     away_distances = df[df['is_home'] == 0]['travel_distance_km']
@@ -782,8 +868,8 @@ def merge_strength_features(df, team_stats_enhanced):
     # Calculate Elo difference (home advantage)
     df_enhanced['elo_difference'] = df_enhanced['home_pre_match_elo'] - df_enhanced['away_pre_match_elo']
     
-    print(f"✓ Merged strength features to {len(df_enhanced)} matches")
-    print(f"✓ Added features: {list(home_rename.values()) + list(away_rename.values()) + ['elo_difference']}")
+    print(f" Merged strength features to {len(df_enhanced)} matches")
+    print(f" Added features: {list(home_rename.values()) + list(away_rename.values()) + ['elo_difference']}")
     
     return df_enhanced
 
@@ -1000,8 +1086,8 @@ def assemble_final_model_ready_dataframe(df, team_stats_final):
     home_stats_df = team_stats_final[team_stats_final['is_home'] == 1].copy()
     away_stats_df = team_stats_final[team_stats_final['is_home'] == 0].copy()
     
-    print(f"✓ Home team records: {len(home_stats_df)}")
-    print(f"✓ Away team records: {len(away_stats_df)}")
+    print(f" Home team records: {len(home_stats_df)}")
+    print(f" Away team records: {len(away_stats_df)}")
     
     # Define all feature columns to merge (excluding base columns)
     base_columns = ['match_id', 'Date', 'team_name', 'is_home', 'points_for', 
@@ -1009,7 +1095,7 @@ def assemble_final_model_ready_dataframe(df, team_stats_final):
     
     feature_columns = [col for col in team_stats_final.columns if col not in base_columns]
     
-    print(f"✓ Features to merge: {len(feature_columns)}")
+    print(f" Features to merge: {len(feature_columns)}")
     print(f"  Rolling features: {len([col for col in feature_columns if col.startswith('rolling_')])}")
     print(f"  Streak features: {len([col for col in feature_columns if 'streak' in col])}")
     print(f"  Form features: {len([col for col in feature_columns if col.startswith(('recent_', 'games_since_'))])}")
@@ -1023,8 +1109,8 @@ def assemble_final_model_ready_dataframe(df, team_stats_final):
     away_rename = {col: f'away_{col}' for col in feature_columns}
     away_features = away_stats_df[['match_id'] + feature_columns].rename(columns=away_rename)
     
-    print(f"✓ Home features created: {len(home_features.columns)-1}")  # -1 for match_id
-    print(f"✓ Away features created: {len(away_features.columns)-1}")  # -1 for match_id
+    print(f" Home features created: {len(home_features.columns)-1}")  # -1 for match_id
+    print(f" Away features created: {len(away_features.columns)-1}")  # -1 for match_id
     
     print("\n=== 5.2: Merging Back to Main DataFrame ===")
     
@@ -1033,11 +1119,11 @@ def assemble_final_model_ready_dataframe(df, team_stats_final):
     
     # Merge home team features
     df_final = df_final.merge(home_features, on='match_id', how='left')
-    print(f"✓ Merged home team features: {df_final.shape}")
+    print(f" Merged home team features: {df_final.shape}")
     
     # Merge away team features
     df_final = df_final.merge(away_features, on='match_id', how='left')
-    print(f"✓ Merged away team features: {df_final.shape}")
+    print(f" Merged away team features: {df_final.shape}")
     
     print("\n=== 5.3: Adding Market Features ===")
     
@@ -1059,14 +1145,14 @@ def assemble_final_model_ready_dataframe(df, team_stats_final):
     
     # Summary of market features
     market_coverage = df_final['home_implied_prob'].notna().sum()
-    print(f"✓ Market features added for {market_coverage}/{len(df_final)} matches ({market_coverage/len(df_final)*100:.1f}%)")
+    print(f" Market features added for {market_coverage}/{len(df_final)} matches ({market_coverage/len(df_final)*100:.1f}%)")
     
     print("\n=== 5.4: Creating Difference Features ===")
     print("Creating the critical difference features that compare home vs away teams...")
     
     # 1. Strength Difference (Most Important)
     df_final['elo_diff'] = df_final['home_pre_match_elo'] - df_final['away_pre_match_elo']
-    print("✓ Elo difference calculated")
+    print(" Elo difference calculated")
     
     # 2. Form Differences (Rolling Averages)
     windows = [3, 5, 8]
@@ -1096,7 +1182,7 @@ def assemble_final_model_ready_dataframe(df, team_stats_final):
             df_final[f'away_rolling_avg_points_against_{window}']
         )
     
-    print(f"✓ Form differences calculated for {len(windows)} windows (12 features)")
+    print(f" Form differences calculated for {len(windows)} windows (12 features)")
     
     # 3. Streak & Recency Differences
     df_final['winning_streak_diff'] = df_final['home_winning_streak'] - df_final['away_winning_streak']
@@ -1105,12 +1191,12 @@ def assemble_final_model_ready_dataframe(df, team_stats_final):
     df_final['games_since_loss_diff'] = df_final['home_games_since_loss'] - df_final['away_games_since_loss']
     df_final['recent_wins_3_diff'] = df_final['home_recent_wins_3'] - df_final['away_recent_wins_3']
     
-    print("✓ Streak and recency differences calculated (5 features)")
+    print(" Streak and recency differences calculated (5 features)")
     
     # 4. Contextual Features (Keep as absolute values, not differences)
     # Rest days - keep separate for home and away
     # Travel distance - only away team travels in our implementation
-    print("✓ Contextual features (rest days, travel) already available")
+    print(" Contextual features (rest days, travel) already available")
     
     print("\n=== 5.5: Final Feature Summary ===")
     
