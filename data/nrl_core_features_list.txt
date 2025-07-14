@@ -29,5 +29,9 @@ CORE MODEL FEATURES (X):
 22. home_implied_prob
 23. away_implied_prob
 24. market_spread
+25. temperature_c
+26. wind_speed_kph
+27. precipitation_mm
+28. is_rainy,is_windy,temperature_category
 
-Total Features: 24
+Total Features: 28

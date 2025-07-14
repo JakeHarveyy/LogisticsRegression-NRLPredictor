@@ -127,17 +127,17 @@ def save_final_outputs(df_final, team_stats_final, core_features, save_intermedi
     
     try:
         # Save the main model-ready dataset
-        final_match_output = 'nrl_matches_final_model_ready.csv'
+        final_match_output = 'data/nrl_matches_final_model_ready.csv'
         df_final.to_csv(final_match_output, index=False)
         print(f"✓ Final model-ready dataset saved to: {final_match_output}")
         
         # Save the complete team stats dataset
-        final_team_output = 'nrl_team_stats_final_complete.csv'
+        final_team_output = 'data/nrl_team_stats_final_complete.csv'
         team_stats_final.to_csv(final_team_output, index=False)
         print(f"✓ Final team stats with all features saved to: {final_team_output}")
         
         # Save a feature list for reference
-        feature_list_output = 'nrl_core_features_list.txt'
+        feature_list_output = 'data/nrl_core_features_list.txt'
         with open(feature_list_output, 'w') as f:
             f.write("NRL BETTING MODEL - CORE FEATURES LIST\n")
             f.write("="*50 + "\n\n")

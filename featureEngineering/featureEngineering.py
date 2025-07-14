@@ -4,7 +4,7 @@ from datetime import datetime
 import warnings
 warnings.filterwarnings('ignore')
 
-def load_and_clean_nrl_data(filepath='nrlBaselineDataWithWeather.csv', fallback_filepath='nrlBaselineData.csv'):
+def load_and_clean_nrl_data(filepath='data/nrlBaselineData.csv'):
     """
     Load and perform foundational cleaning of NRL dataset.
     
@@ -18,7 +18,6 @@ def load_and_clean_nrl_data(filepath='nrlBaselineDataWithWeather.csv', fallback_
     
     Args:
         filepath (str): Path to the CSV file (preferably with weather data)
-        fallback_filepath (str): Fallback path if main file doesn't exist
         
     Returns:
         pd.DataFrame: Cleaned and prepared dataframe
@@ -36,15 +35,6 @@ def load_and_clean_nrl_data(filepath='nrlBaselineDataWithWeather.csv', fallback_
             print(f"✓ Weather data available for {weather_coverage}/{len(df)} matches ({weather_coverage/len(df)*100:.1f}%)")
     except FileNotFoundError:
         print(f"⚠️  Weather-enhanced dataset not found: {filepath}")
-        print(f"   Falling back to original dataset: {fallback_filepath}")
-        try:
-            df = pd.read_csv(fallback_filepath)
-            has_weather = False
-            print(f"✓ Loaded original dataset: {fallback_filepath}")
-            print("   Run weather_scraper.py to create weather-enhanced dataset")
-        except FileNotFoundError:
-            print(f"❌ ERROR: Could not find either {filepath} or {fallback_filepath}")
-            raise FileNotFoundError(f"No baseline data file found")
     
     print(f"Original dataset shape: {df.shape}")
     print(f"Columns: {list(df.columns)}")
@@ -884,8 +874,8 @@ def final_dataset_analysis():
     
     # Load the final datasets
     try:
-        match_df = pd.read_csv('nrl_matches_final_model_ready.csv')
-        team_df = pd.read_csv('nrl_team_stats_final_complete.csv')
+        match_df = pd.read_csv('data/nrl_matches_final_model_ready.csv')
+        team_df = pd.read_csv('data/nrl_team_stats_final_complete.csv')
         
         print(f"\n📊 FINAL DATASET STATISTICS:")
         print(f"   • Match Records: {len(match_df):,}")
@@ -982,10 +972,10 @@ def final_dataset_analysis():
             for feature, count in critical_missing.head(5).items():
                 print(f"     - {feature}: {count} missing ({count/len(team_df)*100:.1f}%)")
         else:
-            print(f"   • Missing Data: No critical missing values ✅")
+            print(f"   • Missing Data: No critical missing values ")
         
         # Feature correlation analysis
-        print(f"\n📈 PREDICTIVE POWER INDICATORS:")
+        print(f"\n PREDICTIVE POWER INDICATORS:")
         
         # Rolling features correlation with wins
         rolling_corrs = {}
@@ -1007,35 +997,25 @@ def final_dataset_analysis():
                 strength_corrs['elo_diff'] = abs(elo_corr)
                 print(f"   • Elo Rating Predictive Power: {elo_corr:.3f}")
         
-        print(f"\n🚀 MACHINE LEARNING READINESS CHECKLIST:")
-        print(f"   ✅ Time-Series Structure: Chronologically sorted")
-        print(f"   ✅ Data Leakage Prevention: Rolling features use .shift(1)")
-        print(f"   ✅ Target Variables: Binary 'won' and 'Home_Win' outcomes")
-        print(f"   ✅ Feature Diversity: {len(rolling_features + streak_features + form_features + strength_features)} engineered features")
-        print(f"   ✅ Team Strength: Elo ratings implemented")
-        print(f"   ✅ Contextual Factors: Rest days and travel distance")
-        print(f"   ✅ Home Advantage: Properly captured and quantified")
-        print(f"   ✅ Form Analysis: Rolling stats, streaks, and recent performance")
+        print(f"\n MACHINE LEARNING READINESS CHECKLIST:")
+        print(f"    Time-Series Structure: Chronologically sorted")
+        print(f"    Data Leakage Prevention: Rolling features use .shift(1)")
+        print(f"    Target Variables: Binary 'won' and 'Home_Win' outcomes")
+        print(f"    Feature Diversity: {len(rolling_features + streak_features + form_features + strength_features)} engineered features")
+        print(f"    Team Strength: Elo ratings implemented")
+        print(f"    Contextual Factors: Rest days and travel distance")
+        print(f"    Home Advantage: Properly captured and quantified")
+        print(f"    Form Analysis: Rolling stats, streaks, and recent performance")
         
-        print(f"\n💡 BETTING STRATEGY INSIGHTS:")
+        print(f"\n BETTING STRATEGY INSIGHTS:")
         print(f"   • Market Inefficiencies: Home advantage patterns ({home_win_rate:.1%} vs 50%)")
         print(f"   • Form Matters: Rolling win rates show predictive power")
         print(f"   • Strength Gaps: Performance range from {team_performance['mean'].min():.1%} to {team_performance['mean'].max():.1%}")
         print(f"   • Travel Factor: Long-distance travel impacts away team performance")
         print(f"   • Rest Impact: Recovery time affects match outcomes")
         print(f"   • Historical Depth: {pd.to_datetime(team_df['Date']).dt.year.nunique()} years of rich training data")
-        
-        print(f"\n🎲 NEXT STEPS FOR BETTING BOT DEVELOPMENT:")
-        print(f"   1. 🤖 Train ML Models: RandomForest, XGBoost, Neural Networks")
-        print(f"   2. 🔄 Cross-Validation: Time-series splits to prevent look-ahead bias")
-        print(f"   3. 📊 Feature Selection: Identify most predictive feature combinations")
-        print(f"   4. 🎯 Probability Calibration: Convert model outputs to betting probabilities")
-        print(f"   5. 💰 Position Sizing: Implement Kelly Criterion for optimal bet sizing")
-        print(f"   6. 📈 Backtesting: Test strategies against historical odds and outcomes")
-        print(f"   7. ⚡ Live Deployment: Real-time prediction and automated betting")
-        print(f"   8. 🔍 Performance Monitoring: Track ROI, Sharpe ratio, and drawdowns")
-        
-        print(f"\n� COMPETITIVE ADVANTAGES:")
+               
+        print(f"\n ADVANTAGES over baseline data")
         print(f"   • Comprehensive Feature Engineering: 20+ unique predictive features")
         print(f"   • Data Leakage Prevention: Strict temporal validation")
         print(f"   • Multi-Scale Analysis: Short-term form + long-term strength")
@@ -1220,8 +1200,11 @@ def assemble_final_model_ready_dataframe(df, team_stats_final):
     
     # Market features
     market_features = ['home_implied_prob', 'away_implied_prob', 'market_spread']
+
+    # Weather Features
+    weather_features = ['temperature_c', 'wind_speed_kph' ,'precipitation_mm', 'is_rainy,is_windy,temperature_category']
     
-    core_features = strength_features + form_diff_features + streak_diff_features + contextual_features + market_features
+    core_features = strength_features + form_diff_features + streak_diff_features + contextual_features + market_features + weather_features
     
     print(f"📊 FINAL FEATURE BREAKDOWN:")
     print(f"   • Total columns: {len(all_columns)}")
